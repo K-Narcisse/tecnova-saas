@@ -1,0 +1,5 @@
+-- AlterTable
+ALTER TABLE "Product" ADD COLUMN     "barcode" TEXT,
+ADD COLUMN     "lowStockThreshold" INTEGER NOT NULL DEFAULT 5,
+ADD COLUMN     "unit" TEXT NOT NULL DEFAULT 'unité',
+ADD COLUMN     "vatRate" DOUBLE PRECISION NOT NULL DEFAULT 18;

@@ -1,0 +1,12 @@
+node_modules/
+.next/
+dist/
+out/
+*.zip
+*.zip.zip
+*.tar.gz
+*.rar
+.env
+.env.local
+.env.production
+*.log

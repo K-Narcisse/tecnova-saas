@@ -1,0 +1,211 @@
+// 1. CONFIGURATION GÉNÉRALE
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// 2. MODÈLE COMPANY (L'ENTREPRISE / TENANT)
+model Company {
+  id         String     @id @default(uuid())
+  name       String
+  email      String     @unique
+  address    String?
+  phone      String?
+  logo       String?
+  currency   String     @default("XOF")
+  
+  ifu        String?
+  rccm       String?
+  status     String     @default("ACTIVE") 
+
+  // Relations avec suppression en cascade
+  users      User[]
+  products   Product[]
+  sales      Sale[]
+  categories Category[]
+  customers  Customer[] 
+  suppliers  Supplier[]
+  expenses   Expense[]
+  movements  StockMovement[]
+  licenses   License[] 
+  
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+}
+
+// 3. MODÈLE USER (L'UTILISATEUR) - MISE À JOUR ICI
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  password  String
+  name      String?  
+  pinCode   String?  @default("0000") 
+  role      Role     @default(CASHIER)
+
+  // --- CHAMPS AJOUTÉS POUR LA RÉCUPÉRATION DE MOT DE PASSE ---
+  resetPasswordToken   String?   @unique
+  resetPasswordExpires DateTime?
+  // ---------------------------------------------------------
+  
+  companyId String
+  company   Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  expenses  Expense[]
+  movements StockMovement[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([companyId])
+}
+
+// 4. MODÈLE CATEGORY
+model Category {
+  id        String    @id @default(uuid())
+  name      String
+  companyId String
+  company   Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  products  Product[]
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@index([companyId])
+}
+
+// 5. MODÈLE PRODUCT (LES ARTICLES)
+model Product {
+  id                 String    @id @default(uuid())
+  name               String
+  barcode            String?   
+  purchasePrice      Float     @default(0)
+  price              Float     
+  stock              Int       @default(0)
+  lowStockThreshold  Int       @default(5)
+  unit               String    @default("unité") 
+  vatRate            Float     @default(18)
+  version            Int       @default(1) 
+  
+  categoryId         String?
+  category           Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  
+  companyId          String
+  company            Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  movements          StockMovement[]
+
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  @@index([companyId])
+}
+
+// 6. MODÈLE STOCK MOVEMENT (TRAÇABILITÉ)
+model StockMovement {
+  id        String   @id @default(uuid())
+  type      String   // IN, OUT, SALE, ADJUST
+  quantity  Int
+  reason    String?  
+  
+  productId String
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  companyId String
+  company   Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@index([companyId])
+}
+
+// 7. MODÈLE CUSTOMER (LES CLIENTS)
+model Customer {
+  id         String   @id @default(uuid())
+  name       String
+  phone      String?
+  address    String?  
+  debt       Float    @default(0) 
+  companyId  String
+  company    Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  sales      Sale[]   
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([companyId])
+}
+
+// 8. MODÈLE SUPPLIER (LES FOURNISSEURS)
+model Supplier {
+  id         String   @id @default(uuid())
+  name       String
+  phone      String?
+  email      String?
+  address    String?
+  companyId  String
+  company    Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([companyId])
+}
+
+// 9. MODÈLE SALE (LES VENTES)
+model Sale {
+  id          String   @id @default(uuid())
+  invoiceRef  String?  
+  totalAmount Float
+  discount    Float    @default(0) 
+  paymentType String   
+  cart        Json     @default("[]") 
+  
+  customerId  String?
+  customer    Customer? @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  companyId   String
+  company     Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  createdAt   DateTime @default(now()) 
+  updatedAt   DateTime @updatedAt
+
+  @@index([companyId])
+}
+
+// 10. MODÈLE EXPENSE (LES DÉPENSES)
+model Expense {
+  id          String   @id @default(uuid())
+  title       String   
+  amount      Float
+  category    String   
+  date        DateTime @default(now())
+  description String?
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  companyId   String
+  company     Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([companyId])
+}
+
+// 11. MODÈLE LICENSE (GESTION DU SAAS)
+model License {
+  id        String   @id @default(uuid())
+  plan      String   // BASIC, PREMIUM, ENTERPRISE
+  startDate DateTime @default(now())
+  endDate   DateTime
+  isActive  Boolean  @default(true)
+  companyId String
+  company   Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([companyId])
+}
+
+enum Role {
+  ADMIN
+  MANAGER
+  CASHIER 
+}
